@@ -1,12 +1,11 @@
 import React from 'react';
 import {StyleSheet, TextStyle, View, ViewStyle} from 'react-native';
 import {
-  PanGestureHandler,
-  PanGestureHandlerGestureEvent,
+  Gesture,
+  GestureDetector,
 } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
-  useAnimatedGestureHandler,
   useSharedValue,
   withDecay,
   withSpring,
@@ -77,10 +76,6 @@ interface PickerProps<T> {
   selectorStyle?: ViewStyle;
 }
 
-type AnimatedGHContext = {
-  startY: number;
-};
-
 const Picker = <T,>({
   data,
   defaultItem,
@@ -101,16 +96,15 @@ const Picker = <T,>({
   const lastIndexY = useSharedValue(index * -itemHeight);
   const maximum = (data.length - 1) * -itemHeight;
 
-  const gestureHandler = useAnimatedGestureHandler<
-    PanGestureHandlerGestureEvent,
-    AnimatedGHContext
-  >({
-    onStart: (_, ctx) => {
-      ctx.startY = optionsIndex.value * -ITEM_HEIGHT;
-    },
-    onActive: (event, ctx) => {
+  const startY = useSharedValue(0)
+
+  const gesture = Gesture.Pan()
+    .onStart(() => {
+      startY.value = optionsIndex.value * -ITEM_HEIGHT;
+    })
+    .onChange((event) => {
       translateY.value = Math.min(
-        Math.max(ctx.startY + event.translationY, maximum),
+        Math.max(startY.value + event.translationY, maximum),
         0,
       );
       if (
@@ -121,8 +115,8 @@ const Picker = <T,>({
           Math.round(translateY.value / -itemHeight) * -itemHeight;
         runOnJS(ReactNativeHapticFeedback.trigger)('impactLight');
       }
-    },
-    onEnd: (event) => {
+    })
+    .onEnd((event) =>{
       optionsIndex.value = Math.round(translateY.value / -itemHeight);
 
       translateY.value = withDecay(
@@ -144,11 +138,10 @@ const Picker = <T,>({
           );
         },
       );
-    },
-  });
+    })
 
   return (
-    <PanGestureHandler onGestureEvent={gestureHandler}>
+    <GestureDetector gesture={gesture}>
       <Animated.View style={style.picker}>
         <View style={style.picker__offset}>
           {data.map((item, listIndex) => (
@@ -167,7 +160,7 @@ const Picker = <T,>({
           <View style={[style.selector, selectorStyle]} />
         </View>
       </Animated.View>
-    </PanGestureHandler>
+    </GestureDetector>
   );
 };
 
